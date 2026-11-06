@@ -1,0 +1,23 @@
+# Секреты: ключи и токены не выкладываем никогда
+.env
+.env.*
+!.env.example
+*.token
+
+# Рабочие файлы ученика: таблицы, креативы, прогресс
+my/
+
+# Кэш, журналы и логи скилла
+.claude/skills/*/cache/
+.claude/skills/*/journal/
+.claude/skills/*/logs/
+.claude/skills/*/settings/
+.claude/settings.local.json
+
+# Служебное
+__pycache__/
+*.py[cod]
+*.log
+*.lock
+.DS_Store
+Thumbs.db
