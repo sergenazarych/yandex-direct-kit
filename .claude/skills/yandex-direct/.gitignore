@@ -2,6 +2,7 @@ config/*
 !config/README.md
 !config/API_ACCESS.md
 !config/STUDENT_GUIDE.md
+!config/zayavka/
 !config/.env.example
 .env
 .env.*

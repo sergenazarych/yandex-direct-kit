@@ -229,7 +229,7 @@ uv run scripts/adgroups.py --account "логин" --campaign 123 --rarely-served
 
 ### Откуда брать частотность
 
-Для новой семантики и оценки спроса используйте соседний [скилл Вордстата](https://github.com/artwist-polyakov/polyakov-claude-skills/tree/main/plugins/yandex-wordstat/skills/yandex-wordstat). Если его нет или доступ не настроен, назовите это и дайте ссылку; частотность на глаз не оценивается.
+Для новой семантики и оценки спроса используйте `scripts/wordstat.py` (Wordstat через Search API Yandex Cloud, настройка — `config/STUDENT_GUIDE.md`, раздел «Wordstat»). Если ключ Wordstat не настроен, назовите это; частотность на глаз не оценивается.
 
 Reports показывает уже полученные показы и клики, а `GetForecast` — прогноз; они не заменяют частотность Вордстата на этапе составления новой семантики.
 
