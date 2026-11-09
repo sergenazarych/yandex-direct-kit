@@ -44,6 +44,8 @@ SEO-теги → таблица кампании и креативы → заг�
 
 Заявку на доступ к API Директа Яндекс рассматривает **до 7 дней**. Если хотите пройти всё
 за один урок, подайте её заранее (шаги 1–2 в [STUDENT_GUIDE.md](.claude/skills/yandex-direct/config/STUDENT_GUIDE.md)).
+Ответы на все вопросы формы заявки по порядку — в шпаргалке
+[kak-zapolnit-zayavku.pdf](.claude/skills/yandex-direct/config/zayavka/kak-zapolnit-zayavku.pdf).
 
 ## Как начать
 
