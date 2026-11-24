@@ -1,0 +1,14 @@
+{
+  "attribution": "AUTO",
+  "accounts": [
+    {
+      "account": "your-direct-login",
+      "account_name": "Мой кабинет",
+      "currency": "RUB",
+      "campaign_ids": [],
+      "report_goals": {},
+      "cheap_cpc": 10,
+      "expensive_cpc": 100
+    }
+  ]
+}

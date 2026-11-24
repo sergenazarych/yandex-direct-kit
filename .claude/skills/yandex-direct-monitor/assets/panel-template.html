@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мониторинг Директа</title>
+<style>
+  :root { color-scheme:light; --ink:#182635; --muted:#556675; --line:#dce5ea; --paper:#fff; --accent:#15665b; --good:#12664e; --bad:#9d2634; --soft-good:#e4f4ed; --soft-bad:#fcecef; font-family:'Segoe UI',system-ui,sans-serif; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f0f5f5; color:var(--ink); }
+  main { max-width:1440px; margin:auto; padding:26px clamp(16px,4vw,52px) 55px; }
+  .hero { padding:26px clamp(18px,3.5vw,43px); border-radius:22px; background:radial-gradient(ellipse at top right,#26665d 0%,transparent 67%),#152d33; color:#fff; }
+  .hero p { color:#c7e1de; }
+  #balance { font-weight:600; }
+  h1 { font-size:clamp(32px,5vw,53px); margin:4px 0; letter-spacing:-.045em; line-height:1.12; }
+  h2 { margin:0; font-size:22px; letter-spacing:-.025em; }
+  h3 { margin:0 0 8px; font-size:16px; }
+  p { margin:7px 0; line-height:1.48; }
+  .meta { color:var(--muted); }
+  .controls { display:flex; flex-wrap:wrap; align-items:end; gap:10px 12px; margin:17px 0 10px; }
+  label { display:grid; gap:5px; color:var(--muted); font-size:13px; }
+  select,button,input { font:inherit; color:var(--ink); padding:8px 11px; background:var(--paper); border:1px solid #cbd8de; border-radius:8px; max-width:min(275px,85vw); }
+  input[type=number] { width:7em; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  :focus-visible { outline:3px solid #2a8f7c; outline-offset:2px; }
+  button[aria-pressed="true"] { color:white; background:var(--accent); border-color:var(--accent); }
+  .tabs { display:flex; gap:4px; margin-right:auto; }
+  .summary { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:11px; margin:14px 0 24px; }
+  .tile,section,.plot { background:var(--paper); border:1px solid var(--line); border-radius:15px; padding:17px; min-width:0; }
+  .tile strong { display:block; font-size:clamp(20px,2.9vw,31px); margin:5px 0 10px; line-height:1.16; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  .tile footer { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; font-size:12px; }
+  .badge { display:inline-block; border-radius:6px; padding:2px 6px; font-size:12px; font-weight:650; line-height:1.4; }
+  .badge.up { background:var(--soft-good); }
+  .badge.down { background:var(--soft-bad); }
+  .badge.meta { background:#edf2f4; }
+  .up { color:var(--good); }
+  .down { color:var(--bad); }
+  section { margin:13px 0; }
+  .section-head { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:7px; margin-bottom:9px; }
+  .chart-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:11px; }
+  .plot { padding:12px 14px 5px; background:#fcfefe; }
+  .plot svg { width:100%; height:auto; max-height:205px; display:block; font-family:inherit; font-variant-numeric:tabular-nums; }
+  .legend { display:flex; flex-wrap:wrap; gap:7px 16px; color:var(--muted); font-size:13px; }
+  .legend span::before { content:''; display:inline-block; width:17px; margin:0 6px 4px 0; border-top:2px solid var(--accent); }
+  .legend .earlier::before { border-top:2px dashed #687d94; }
+  .table { overflow:auto; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th,td { padding:9px 8px; text-align:right; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; background:#f5f8f9; }
+  th:first-child,td:first-child,th:last-child,td:last-child { text-align:left; }
+  td:first-child { font-weight:550; min-width:160px; white-space:normal; overflow-wrap:anywhere; }
+  td:last-child { white-space:normal; min-width:120px; }
+  td:last-child span { margin:2px 3px 2px 0; }
+  tbody tr:hover { background:#f7fafa; }
+  .pagination { margin-top:9px; }
+  .table-filters { display:flex; flex-wrap:wrap; gap:6px; margin:9px 0; }
+  .table-filters button { font-size:12px; }
+  th button { padding:0; border:0; border-radius:0; background:none; color:inherit; text-align:inherit; font-weight:inherit; }
+  .filters-inline { display:flex; flex-wrap:wrap; gap:10px 14px; }
+  details { margin-top:13px; }
+  summary { cursor:pointer; font-weight:650; }
+  .element { padding:9px 0; border-bottom:1px solid var(--line); }
+  .element strong { display:block; }
+  ul { padding-left:22px; margin:8px 0; }
+  li { margin:6px 0; line-height:1.45; }
+  .report-link { display:block; margin:5px 0 9px; padding:0; border:0; background:none; color:var(--accent); font-weight:600; text-decoration:underline; text-underline-offset:3px; }
+  [hidden] { display:none !important; }
+  @media(max-width:680px) { .summary { grid-template-columns:repeat(2,minmax(0,1fr)); } .chart-grid { grid-template-columns:1fr; } .tabs { flex-basis:100%; } }
+</style>
+<main>
+  <header class="hero"><p id="account"></p><h1>Мониторинг Директа</h1><p id="updated"></p><p id="balance"></p></header>
+  <div class="controls">
+    <div class="tabs" id="tabs" aria-label="Период"></div>
+    <label>Кабинет<select id="account-select"></select></label>
+    <label>Дата отчёта<select id="snapshot"></select></label>
+    <label>Трафик<select id="traffic"></select></label>
+    <label>Кампания<select id="campaign"></select></label>
+    <label id="goal-control">Цель<select id="goal"></select></label>
+    <button id="download" type="button">Скачать CSV</button>
+  </div>
+  <p id="comparison" class="meta"></p>
+  <div class="summary" id="metrics"></div>
+  <div class="filters-inline" id="thresholds"></div>
+  <section id="overview"><div class="section-head"><h2>Динамика по дням</h2><div class="legend" id="legend"></div></div><p class="meta" id="chart-note"></p><div class="chart-grid" id="chart"></div></section>
+  <section><h2>Оповещения и рекомендации</h2><div id="advice"></div></section>
+  <div id="breakdowns"></div>
+</main>
+<script type="application/json" id="stored-data">__DASHBOARD_DATA__</script>
+<script>
+  'use strict';
+  const data = JSON.parse(document.getElementById('stored-data').textContent);
+  const byId = id => document.getElementById(id);
+  const names = {day:'День',week:'Неделя',month:'Месяц'};
+  const slices = {placements:'Площадки',ads:'Объявления и элементы',ad_formats:'Форматы объявлений',audience:'Пол и возраст',devices:'Устройства и ОС',regions:'География',campaigns:'Кампании в отчёте',combos:'Связки показов'};
+  const dimensions = {placements:'Название площадки',ads:'Объявление',ad_formats:'Формат',audience:'Сегмент',devices:'Устройство · ОС',regions:'Регион',campaigns:'Кампания',combos:'Площадка · объявление · сегмент'};
+  const dimensionsRu = {DESKTOP:'Компьютер',MOBILE:'Смартфон',TABLET:'Планшет',SMART_TV:'Smart TV',IOS:'iOS',ANDROID:'Android',OTHER:'Другое',UNKNOWN:'Не определено',GENDER_MALE:'Мужчины',GENDER_FEMALE:'Женщины',AGE_0_17:'До 18',AGE_18_24:'18–24',AGE_25_34:'25–34',AGE_35_44:'35–44',AGE_45_54:'45–54',AGE_55:'55+',TEXT:'Текстовый',IMAGE:'Графический',VIDEO:'Видео',ADAPTIVE_IMAGE:'Адаптивный графический'};
+  const number = new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2});
+  const axisNumber = new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1});
+  const format = v => v == null ? '—' : number.format(v);
+  let currency;
+  const money = v => v == null ? '—' : currency.format(v);
+  const percent = v => v == null ? '—' : `${format(v)}%`;
+  const divide = (a,b) => a == null || !b ? null : a/b;
+  const rate = (a,b) => a == null || !b ? null : 100*a/b;
+  const allGoals = 'all';
+  let availableGoals = [];
+  const selectedGoals = () => byId('goal').value===allGoals ? availableGoals : [byId('goal').value];
+  const hasCompleteGoals = row => selectedGoals().every(goal=>row.goals[goal]!=null);
+  function goalValue(row) {
+    const values=selectedGoals().map(goal=>row.goals[goal]);
+    const known=values.filter(value=>value!=null);
+    const sum=known.reduce((total,value)=>total+value,0);
+    return known.length && (sum>0 || known.length===values.length) ? sum : null;
+  }
+  const cpc = row => divide(row.cost,row.clicks);
+  const cpa = row => hasCompleteGoals(row) ? divide(row.cost,goalValue(row)) : null;
+  const cr = row => hasCompleteGoals(row) ? rate(goalValue(row),row.clicks) : null;
+  const displayDate = value => value.split('-').reverse().join('.');
+  const dates = (a,b) => a===b ? displayDate(a) : `${displayDate(a)} — ${displayDate(b)}`;
+  const blank = {impressions:0,clicks:0,cost:0,goals:{}};
+  let kind = 'day';
+  const customThresholds = new Map();
+  try {
+    for (const [login,config] of Object.entries(JSON.parse(localStorage.getItem('direct-cpc-thresholds') || '{}'))) {
+      if (Number.isFinite(config.cheap) && Number.isFinite(config.expensive) && config.cheap>=0 && config.cheap<config.expensive) customThresholds.set(login,config);
+    }
+  } catch {}
+
+  function node(tag, value, css) {
+    const element = document.createElement(tag);
+    if (value != null) element.textContent = value;
+    if (css) element.className = css;
+    return element;
+  }
+
+  function addOptions(select, values, fallback) {
+    const selected = select.value;
+    select.replaceChildren(...values.map(([value,text]) => {
+      const option = node('option',text);
+      option.value = value;
+      return option;
+    }));
+    if (values.some(([value])=>String(value)===selected)) select.value = selected;
+    else if (fallback != null) select.value = fallback;
+  }
+
+  function metrics(now,before,threshold) {
+    const spec = [
+      ['Расход с НДС',r=>r.cost,money,0], ['Показы',r=>r.impressions,format,0],
+      ['Клики',r=>r.clicks,format,0], ['CTR',r=>rate(r.clicks,r.impressions),percent,0,true],
+      ['CPC',cpc,money,0], ['Конверсии',goalValue,format,1],
+      ['CPA',cpa,money,-1], ['Конверсия, % (CR)',cr,percent,1,true],
+    ];
+    byId('metrics').replaceChildren(...spec.map(([label,get,pretty,direction,pp])=>{
+      const a=get(now), b=get(before);
+      const delta=a==null || b==null ? null : pp ? a-b : b!==0 ? 100*(a-b)/b : a===0 ? 0 : null;
+      const sign=delta==null ? Math.sign((a ?? 0)-(b ?? 0))*direction : Math.sign(delta)*direction;
+      const tone=a!=null && b!=null ? sign>0 ? 'up' : sign<0 ? 'down' : 'meta' : 'meta';
+      const item=node('article',null,'tile');
+      const footer=node('footer');
+      const change=delta==null ? a!=null && b===0 ? 'Было 0' : 'Нет сравнения' : `${delta>0 ? '+' : ''}${format(delta)} ${pp ? 'п. п.' : '%'}`;
+      footer.append(node('span',change,`badge ${tone}`));
+      if (b!=null && change!=='Было 0') footer.append(node('span',`было ${pretty(b)}`,'meta'));
+      const risky=label==='CPC' && a!=null && a<threshold;
+      if (risky) footer.append(node('span',`Ниже ${money(threshold)}`,'badge down'));
+      item.append(node('span',label,'meta'),node('strong',pretty(a),risky ? 'down' : tone),footer);
+      return item;
+    }));
+  }
+
+  function lineChart(title,current,previous,metric,pretty,unit) {
+    const plot = node('article',null,'plot');
+    plot.append(node('h3',title));
+    const values=[...current,...previous].map(metric).filter(Number.isFinite);
+    if (!values.length) { plot.append(node('p','Нет данных для графика.','meta')); return plot; }
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 560 175');
+    svg.setAttribute('role','img');
+    svg.setAttribute('aria-label',title);
+    const add = (tag,attrs,text,parent=svg)=>{
+      const el=document.createElementNS(svg.namespaceURI,tag);
+      for (const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
+      if (text!=null) el.textContent=text;
+      parent.append(el);
+      return el;
+    };
+    const limit=Math.max(1,...values)*1.05;
+    const count=Math.max(current.length,previous.length);
+    const x=i=>count>1 ? 60+i*478/(count-1) : 299;
+    const y=v=>141-121*v/limit;
+    for (const part of [0,.5,1]) {
+      const pos=y(limit*part);
+      add('line',{x1:60,x2:538,y1:pos,y2:pos,stroke:'#dce5ea'});
+      add('text',{x:52,y:pos+4,'text-anchor':'end',fill:'#556675','font-size':11},`${axisNumber.format(limit*part)}${unit}`);
+    }
+    function series(rows,color,dashes) {
+      let path='', gap=true;
+      rows.forEach((row,i)=>{
+        const value=metric(row);
+        if (!Number.isFinite(value)) { gap=true; return; }
+        path+=`${gap?'M':'L'}${x(i)},${y(value)} `;
+        gap=false;
+      });
+      add('path',{d:path,fill:'none',stroke:color,'stroke-width':2.1,'stroke-linejoin':'round','stroke-dasharray':dashes});
+      rows.forEach((row,i)=>{
+        const value=metric(row);
+        if (!Number.isFinite(value)) return;
+        const point=add('circle',{cx:x(i),cy:y(value),r:3,fill:color,stroke:'#fff','stroke-width':.7});
+        add('title',{},`${displayDate(row.key[0])} · ${pretty(value)}`,point);
+      });
+    }
+    series(previous,'#687d94','5 4');
+    series(current,'#15665b','none');
+    const steps=new Set([0,Math.round((current.length-1)/3),Math.round((current.length-1)*2/3),current.length-1]);
+    for (const i of steps) {
+      if (i>=0 && current[i]) add('text',{x:x(i),y:165,fill:'#556675','font-size':11,'text-anchor':'middle'},displayDate(current[i].key[0]).slice(0,5));
+    }
+    plot.append(svg);
+    return plot;
+  }
+
+  function charts(period,campaign) {
+    const current=period.trend?.[campaign] || (campaign ? [] : period.daily || []);
+    const previous=kind==='day' ? [] : period.previous_trend?.[campaign] || [];
+    const line=(title,metric,pretty,unit)=>lineChart(title,current,previous,metric,pretty,unit);
+    byId('legend').replaceChildren(node('span',current.length && kind==='day' ? `Последние ${current.length} дней` : dates(period.start,period.end)));
+    if (previous.length) byId('legend').append(node('span',dates(...period.previous),'earlier'));
+    const paid=current.filter(row=>row.clicks>0);
+    const zero=paid.filter(row=>goalValue(row)===0).length;
+    const unknown=paid.filter(row=>goalValue(row)==null).length;
+    const partial=paid.filter(row=>goalValue(row)>0 && !hasCompleteGoals(row)).length;
+    byId('chart-note').textContent=[zero ? `Дней с кликами и без конверсий: ${zero}. В эти дни конверсия равна 0%, а стоимость конверсии посчитать нельзя.` : '',
+      unknown ? `Дней с кликами и без подтверждённых данных по цели: ${unknown}. На графике оставлены пропуски.` : '',
+      partial ? `Дней с данными только по части целей: ${partial}. Показаны подтверждённые конверсии.` : ''].filter(Boolean).join(' ');
+    const unit=currency.resolvedOptions().currency==='RUB' ? ' ₽' : '';
+    byId('chart').replaceChildren(line('Расход с НДС',r=>r.cost,money,unit),line('Средняя цена клика (CPC)',cpc,money,unit),
+      line('Стоимость конверсии (CPA)',cpa,money,unit),line('Конверсия, % (CR)',cr,percent,'%'),
+      line('Количество конверсий',goalValue,format,''),line('Количество кликов',r=>r.clicks,format,''));
+  }
+
+  function labelsFor(key,row) {
+    const values=row.key.slice(1);
+    const label=value=>dimensionsRu[value] || value;
+    if (key==='placements') return values[0];
+    if (key==='campaigns') return `${values[0]} · № ${row.key[0]}`;
+    if (key==='ads') return /^\d+$/.test(values[1]) && Number(values[1])>0 ? `№ ${values[1]}` : `Сводная строка · кампания № ${row.key[0]} · ID недоступен`;
+    if (key==='regions') return values[1]==='—' ? values[0] : values[1];
+    if (key==='combos') return [values[0],/^\d+$/.test(values[2]) && Number(values[2])>0 ? `№ ${values[2]}` : `сводно по кампании № ${row.key[0]}`,...values.slice(3).map(label)].join(' · ');
+    return values.map(label).join(' · ');
+  }
+
+  function displayedRows(rows,key,campaign) {
+    const selected=rows.filter(row=>!campaign || row.key[0]===campaign);
+    if (campaign || !['placements','audience','devices','regions','ad_formats'].includes(key)) return selected;
+    const groups=new Map();
+    for (const row of selected) {
+      const name=JSON.stringify(row.key.slice(1));
+      if (!groups.has(name)) groups.set(name,[]);
+      groups.get(name).push(row);
+    }
+    const goals=selectedGoals();
+    return Array.from(groups.values(),items=>{
+      const active=items.filter(row=>row.impressions || row.clicks || row.cost || goals.some(goal=>row.goals[goal]!=null));
+      const sum=(values)=>values.some(value=>value==null) ? null : values.reduce((a,b)=>a+b,0);
+      return {key:items[0].key,cost:sum(items.map(r=>r.cost)),clicks:sum(items.map(r=>r.clicks)),
+        impressions:sum(items.map(r=>r.impressions)),
+        goals:Object.fromEntries(goals.map(goal=>[goal,active.length ? sum(active.map(row=>row.goals[goal])) : null]))};
+    });
+  }
+
+  function segmentTable(rows,key,threshold,expensive,average) {
+    const wrap=node('div',null,'table');
+    if (!rows.length) { wrap.append(node('p','Нет данных в выбранном периоде.','meta')); return wrap; }
+    const t=node('table');
+    const header=t.createTHead().insertRow();
+    const columns=[[dimensions[key],row=>labelsFor(key,row)],['Расход',row=>row.cost],['Показы',row=>row.impressions],
+      ['Клики',row=>row.clicks],['CTR',row=>rate(row.clicks,row.impressions)],['CPC',cpc],['Конв.',goalValue],['CPA',cpa],['CR',cr]];
+    const body=t.createTBody();
+    const cheap=row=>cpc(row)!=null && cpc(row)<threshold && row.clicks>2;
+    const costly=row=>cpc(row)!=null && cpc(row)>expensive && row.clicks>2;
+    const limit=average>0 ? 3*average : null;
+    const overLimit=row=>limit!=null && row.cost>limit && goalValue(row)===0;
+    const aboveDouble=row=>average>0 && goalValue(row)>0 && cpa(row)>2*average;
+    const highCpa=row=>limit!=null && goalValue(row)>0 && cpa(row)>limit;
+    const choices=[['Все',()=>true],['Дешёвые клики',cheap],['Дорогие клики',costly],['Без конверсий · расход > 3 CPA',overLimit],['Заявки дороже 2× среднего',aboveDouble],['CPA выше 3 средних',highCpa]];
+    let filter=0;
+    let order=1;
+    let direction=-1;
+    let ordered=[];
+    const more=node('button','Показать ещё','pagination');
+    const none=node('p','Строк с этим сигналом нет.','meta');
+    let position=0;
+    const headings=columns.map(([label],index)=>{
+      const th=node('th');
+      const button=node('button',label);
+      button.type='button';
+      button.addEventListener('click',()=>{
+        direction=index===order ? -direction : index===0 || index===7 ? 1 : -1;
+        order=index;
+        redraw();
+      });
+      th.append(button);
+      header.append(th);
+      return [th,button];
+    });
+    header.append(node('th','Сигналы'));
+    function appendRows() {
+      for (const row of ordered.slice(position,position+50)) {
+        const tr=body.insertRow();
+        const clickPrice=cpc(row);
+        const low=cheap(row);
+        const large=overLimit(row);
+        const values=[labelsFor(key,row),money(row.cost),format(row.impressions),format(row.clicks),percent(rate(row.clicks,row.impressions)),money(clickPrice),format(goalValue(row)),money(cpa(row)),percent(cr(row))];
+        values.forEach((value,i)=>tr.append(node('td',value,(i===5 && clickPrice!=null && clickPrice<threshold)||(i===1 && large)||(i===7 && aboveDouble(row)) ? 'down' : null)));
+        const signals=node('td');
+        if (low) signals.append(node('span','Дешёвые клики','badge down'));
+        if (costly(row)) signals.append(node('span','Дорогие клики','badge down'));
+        if (large) signals.append(node('span','Расход > 3 CPA · 0 конверсий','badge down'));
+        if (aboveDouble(row)) {
+          signals.append(node('span',highCpa(row) ? 'CPA выше 3 средних' : 'Заявки дороже 2× среднего','badge down'));
+          if (goalValue(row)<3) signals.append(node('span','Мало конверсий','badge meta'));
+        }
+        if (limit!=null && row.cost>limit && goalValue(row)==null) signals.append(node('span','Данных по цели нет','badge meta'));
+        if (!signals.children.length) signals.append(node('span','—','meta'));
+        tr.append(signals);
+      }
+      position+=50;
+      more.hidden=position>=ordered.length;
+      more.textContent=`Показать ещё · ${Math.max(0,ordered.length-position)}`;
+    }
+    more.addEventListener('click',appendRows);
+    const filters=node('div',null,'table-filters');
+    const controls=choices.map(([label,test],index)=>{
+      const button=node('button',`${label} · ${rows.filter(test).length}`);
+      button.disabled=index>=3 && limit==null;
+      button.addEventListener('click',()=>{filter=index;redraw();});
+      return button;
+    });
+    function redraw() {
+      const get=columns[order][1];
+      ordered=rows.filter(choices[filter][1]).sort((a,b)=>{
+        const x=get(a),y=get(b);
+        if (x==null || y==null) return Number(x==null)-Number(y==null);
+        return direction*(typeof x==='string' ? x.localeCompare(y,'ru') : x-y);
+      });
+      headings.forEach(([th,button],index)=>{
+        th.setAttribute('aria-sort',index===order ? direction===1 ? 'ascending' : 'descending' : 'none');
+        button.textContent=columns[index][0]+(index===order ? direction===1 ? ' ↑' : ' ↓' : '');
+      });
+      controls.forEach((button,index)=>button.setAttribute('aria-pressed',String(index===filter)));
+      position=0;
+      body.replaceChildren();
+      t.hidden=!ordered.length;
+      none.hidden=Boolean(ordered.length);
+      appendRows();
+    }
+    filters.append(...controls);
+    wrap.append(filters,none,t,more);
+    redraw();
+    return wrap;
+  }
+
+  function adComposition(rows,elements) {
+    const details=node('details');
+    details.append(node('summary','Текущий состав объявлений · справочно'));
+    const ids=[...new Set(rows.map(r=>r.key[2]))].filter(id=>elements[id]);
+    if (ids.length) {
+      details.append(node('p','Текущий состав объявлений с наибольшим расходом.','meta'));
+      for (const id of ids) {
+        const parts=elements[id];
+        const el=node('div',null,'element');
+        el.append(node('strong',`Объявление № ${id}`));
+        if (parts.titles.length) el.append(node('p',`Заголовки · ${parts.titles.join(' / ')}`));
+        if (parts.texts.length) el.append(node('p',`Тексты · ${parts.texts.join(' / ')}`));
+        if (parts.images || parts.videos) el.append(node('p',`Изображения: ${parts.images} · Видео: ${parts.videos}`,'meta'));
+        details.append(el);
+      }
+    }
+    details.append(node('p','В этом блоке нет статистики комбинаций. Для такой статистики нужен идентификатор показанного набора «заголовок + текст + изображение». В проверенных полях публичного API его нет.','meta'));
+    return details;
+  }
+
+  function breakdowns(tables,period,snap,campaign,now,threshold,expensive) {
+    const comparable=period.campaigns.filter(r=>hasCompleteGoals(r) && goalValue(r)!=null && r.cost!=null);
+    const covered=divide(comparable.reduce((s,r)=>s+r.cost,0),comparable.reduce((s,r)=>s+goalValue(r),0));
+    const displayedAverage=cpa(now);
+    const accountAverage=cpa(period.total);
+    const average=displayedAverage ?? accountAverage ?? covered;
+    const limit=average!=null && average>0 ? 3*average : null;
+    byId('breakdowns').replaceChildren(...Object.keys(slices).map(key=>{
+      const entry=node('section');
+      const shown=displayedRows(tables[key] || [],key,campaign);
+      const header=node('div',null,'section-head');
+      header.append(node('h2',slices[key]),node('span',`${shown.length} строк`,'meta'));
+      entry.append(header);
+      if (key==='placements') {
+        const source=displayedAverage!=null ? `из верхней карточки ${campaign ? 'по выбранной кампании' : 'по кабинету'}` : accountAverage!=null ? 'по кабинету' : 'по кампаниям с данными этой цели';
+        const limitLabel=limit==null ? 'Средний CPA для выбранной цели пока недоступен.' : `Средний CPA ${money(average)} ${source} · 2× — ${money(2*average)} · 3× — ${money(limit)}.`;
+        entry.append(node('p',`${limitLabel} Сигнал по расходу требует подтверждённого нуля конверсий. Высокий CPA виден уже при одной конверсии. При одной или двух ставится пометка «Мало конверсий». Расходы поиска могут быть сгруппированы под названием поисковой площадки.`, 'meta'));
+      }
+      if (key==='combos') entry.append(node('p','Связка объединяет площадку, объявление, устройство, ОС, пол и возраст. Строки без номера объявления сгруппированы по кампании и могут включать несколько объявлений.','meta'));
+      entry.append(segmentTable(shown,key,threshold,expensive,average));
+      if (key==='ads') entry.append(adComposition(shown,snap.elements || {}));
+      return entry;
+    }));
+  }
+
+  function alertItem(alert, catalog, labels, activeCampaign) {
+    const id=alert.campaign_id;
+    const name=catalog[id]?.name?.replace(/\s+/g,' ').trim();
+    const subject=id ? name ? `В кампании «${name}»` : `В кампании № ${id}` : 'По кабинету';
+    const goalId=alert.metric.split(':')[1];
+    const goal=labels[goalId] ? ` по цели «${labels[goalId]}»` : '';
+    const days=new Intl.NumberFormat('ru-RU',{style:'unit',unit:'day',unitDisplay:'long'}).format(alert.days);
+    let message;
+    if (alert.metric.startsWith('zero:')) {
+      message=`${subject} потратили ${money(alert.value)} и не получили ни одной конверсии${goal}. Обычно одна конверсия стоила ${money(alert.baseline)} по данным за ${days}.`;
+    } else {
+      const isClick=alert.metric==='cpc';
+      const metric=isClick ? 'цена клика' : `стоимость конверсии${goal}`;
+      const amount=Math.round(Math.abs(alert.change*100));
+      message=`${subject} ${metric} ${alert.change<0 ? 'снизилась' : 'выросла'} на ${amount}%. Обычная цена за ${days} наблюдений — ${money(alert.baseline)}, сейчас — ${money(alert.value)}.`;
+    }
+    const entry=node('li',message);
+    if (id && id!==activeCampaign) {
+      const button=node('button','Посмотреть отчёт кампании','report-link');
+      button.type='button';
+      button.addEventListener('click',()=>{
+        byId('campaign').value=id;
+        draw();
+        if (goalId && Array.from(byId('goal').options).some(option=>option.value===goalId)) {
+          byId('goal').value=goalId;
+          draw();
+        }
+        byId('campaign').focus?.({preventScroll:true});
+        byId('campaign').scrollIntoView?.({block:'center'});
+      });
+      entry.append(button);
+    }
+    return entry;
+  }
+
+  function draw() {
+    const login=byId('account-select').value;
+    const latest=data.accounts[login];
+    const base=data.archives[login][byId('snapshot').value] || latest;
+    const scopeChoices=base.scope==='all' ? [['all','Весь трафик'],...(base.network ? [['network','Только РСЯ']] : [])] : [['network','Только РСЯ']];
+    addOptions(byId('traffic'),scopeChoices,scopeChoices[0][0]);
+    const network=byId('traffic').value==='network';
+    const snap=network && base.network ? base.network : base;
+    byId('account').textContent=`${snap.settings.account_name} · ${login}`;
+    currency=new Intl.NumberFormat('ru-RU',{style:'currency',currency:snap.settings.currency,maximumFractionDigits:2});
+    const thresholds=customThresholds.get(login) || {cheap:snap.settings.cheap_cpc ?? 10,expensive:snap.settings.expensive_cpc ?? 100};
+    byId('thresholds').replaceChildren(...[['cheap','Дешёвый CPC ниже'],['expensive','Дорогой CPC выше']].map(([key,label])=>{
+      const field=node('label',label);
+      const input=node('input');
+      input.type='number'; input.min='0'; input.step='0.01'; input.value=thresholds[key];
+      input.addEventListener('change',()=>{
+        const value=Number(input.value);
+        const alternative={...thresholds,[key]:value};
+        if (input.value==='' || !Number.isFinite(value) || value<0 || alternative.cheap>=alternative.expensive) {
+          input.value=thresholds[key];
+          return;
+        }
+        customThresholds.set(login,alternative);
+        try { localStorage.setItem('direct-cpc-thresholds',JSON.stringify(Object.fromEntries(customThresholds))); } catch {}
+        draw();
+      });
+      field.append(input);
+      return field;
+    }));
+    const sample=data.balances?.[snap.as_of]?.[login];
+    const opening=sample?.opening;
+    byId('balance').textContent=opening ? `Остаток на начало ${displayDate(snap.as_of)} · ${money(opening.amount)} · замер в ${opening.at.slice(11,16)} МСК` :
+      `Остаток на начало ${displayDate(snap.as_of)} · ${sample?.unavailable ? 'API не вернул баланс общего счёта' : 'нет замера'}${sample?.latest ? ` · в ${sample.latest.at.slice(11,16)} МСК было ${money(sample.latest.amount)}` : ''}`;
+    byId('balance').title=sample?.unavailable || '';
+    const periods=snap.periods;
+    if (!periods[kind]) kind='day';
+    byId('tabs').replaceChildren(...Object.entries(names).filter(([key])=>periods[key]).map(([key,label])=>{
+      const button=node('button',label);
+      button.setAttribute('aria-pressed',String(key===kind));
+      button.addEventListener('click',()=>{kind=key;draw();});
+      return button;
+    }));
+    const period=periods[kind];
+    const catalog={...snap.catalog};
+    for (const row of [...period.previous_campaigns,...period.campaigns]) catalog[row.key[0]] ??= {name:row.key[1],channels:['AD_NETWORK']};
+    const isSearch=entry=>entry?.channels.includes('SEARCH') && !entry.channels.includes('AD_NETWORK');
+    const campaigns=Object.entries(catalog).sort(([,a],[,b])=>Number(b.state==='ON')-Number(a.state==='ON') || a.name.localeCompare(b.name,'ru'));
+    addOptions(byId('campaign'),[['','Все кампании'],...campaigns.map(([id,entry])=>[id,`${entry.name} · № ${id}${isSearch(entry) ? ' · поиск' : ''}`])]);
+    const campaign=byId('campaign').value;
+    const now=campaign ? period.campaigns.find(r=>r.key[0]===campaign) || blank : period.total;
+    const before=campaign ? period.previous_campaigns.find(r=>r.key[0]===campaign) || blank : period.baseline;
+    const assignments=period.campaign_goals || {};
+    const labels=period.goal_labels || {};
+    const relevant=[...period.campaigns,...period.previous_campaigns].filter(r=>r.impressions || r.clicks || r.cost).map(r=>r.key[0]);
+    const fixed=Object.keys(snap.settings.report_goals || {});
+    const goalIds=fixed.length ? fixed : campaign ? assignments[campaign] || [] : Object.keys(labels).filter(goal=>relevant.length && relevant.every(id=>assignments[id]?.includes(goal)));
+    availableGoals=goalIds.filter(goal=>goal!==allGoals);
+    const options=availableGoals.length ? [[allGoals,'Все цели'],
+      ...availableGoals.map(goal=>[goal,`${goal} · ${labels[goal]}`])] : [];
+    addOptions(byId('goal'),options,allGoals);
+    byId('goal-control').hidden=!options.length;
+    byId('updated').textContent=`Обновлено ${snap.generated.slice(0,16).replace('T',' ')} МСК · ${network ? 'Только РСЯ' : 'Весь трафик Директа'} · с НДС · ${snap.settings.attribution}`;
+    byId('comparison').textContent=`${dates(period.start,period.end)} · сравнение с ${dates(...period.previous)}${period.preliminary ? ' · свежие конверсии могут догрузиться' : ''}`;
+    metrics(now,before,thresholds.cheap);
+    charts(period,campaign);
+    const tables={campaigns:period.campaigns,...period.slices};
+    breakdowns(tables,period,snap,campaign,now,thresholds.cheap,thresholds.expensive);
+    byId('download').onclick=()=>download(tables,campaign,period,now,before);
+    const goals=selectedGoals();
+    const alerts=kind==='day' ? snap.alerts.filter(a=>(!campaign || a.campaign_id===campaign) &&
+      (a.metric==='cpc' || goals.includes(a.metric.split(':')[1]))) : [];
+    const dailyNotes=data.notes[login]?.[period.completed_on || snap.as_of];
+    const notes=network ? dailyNotes?.network?.[kind] || dailyNotes?.[kind] || [] : dailyNotes?.all?.[kind] || [];
+    const checks=[];
+    if (data.failures[login]) checks.push('Последняя выгрузка кабинета не завершилась. Показаны предыдущие данные.');
+    if (base.warnings?.network) checks.push('Разрез РСЯ не обновился. Общий отчёт показан по всем типам трафика.');
+    if (!(now.impressions || now.clicks || now.cost)) checks.push(network && isSearch(catalog[campaign]) ? 'Выберите «Весь трафик», чтобы посмотреть статистику поисковой кампании.' : 'За выбранный период открутки в этом срезе нет.');
+    if (!options.length) checks.push(campaign ? 'Настроенная цель этой кампании недоступна через API.' : 'Для просмотра конверсий выберите кампанию с доступной настроенной целью.');
+    if (goals.length>1) {
+      checks.push('«Все цели» суммирует достижения выбранных целей. Один человек может выполнить несколько целей.');
+      if (now.clicks && !hasCompleteGoals(now)) checks.push('По части целей есть пропуски. Показаны подтверждённые конверсии, а общий CPA и CR появятся при полном наборе данных.');
+    } else if (options.length && now.clicks && goalValue(now)==null) {
+      checks.push('По выбранной цели Директ не вернул значения для расчёта конверсий.');
+    }
+    if (Object.keys(period.errors).length) checks.push(`Разрезы недоступны: ${Object.keys(period.errors).map(k=>slices[k]).join(', ')}.`);
+    const list=[...alerts.map(alert=>alertItem(alert,catalog,labels,campaign)),...notes.map(line=>node('li',line)),...checks.map(line=>node('li',line))];
+    const advice=node('ul');
+    if (list.length) advice.append(...list);
+    byId('advice').replaceChildren(list.length ? advice : node('p','Пороговых отклонений не обнаружено.','meta'));
+  }
+
+  function download(tables,campaign,period,now,before) {
+    const fields=['Кабинет','Трафик','Цель','Разрез','Объект','Показы','Клики','Расход с НДС','CTR %','CPC','Конверсии','CPA','CR %'];
+    const account=byId('account-select').value;
+    const goal=byId('goal').selectedOptions[0]?.textContent || '';
+    const scope=byId('traffic').selectedOptions[0]?.textContent || '';
+    const row=(section,label,entry)=>[account,scope,goal,section,label,entry.impressions,entry.clicks,entry.cost,
+      rate(entry.clicks,entry.impressions),cpc(entry),goalValue(entry),cpa(entry),cr(entry)];
+    const values=[fields,row('Итог',dates(period.start,period.end),now),row('Сравнение',dates(...period.previous),before)];
+    for (const [key,entries] of Object.entries(tables)) {
+      for (const entry of entries.filter(item=>!campaign || item.key[0]===campaign)) values.push(row(slices[key],entry.key.join(' · '),entry));
+    }
+    const cell=value=>{
+      const raw=value==null ? '' : String(value);
+      const safe=typeof value==='string' && /^[=+@\-\t\r]/.test(raw) ? `'${raw}` : raw;
+      return `"${safe.replaceAll('"','""')}"`;
+    };
+    const contents='\uFEFF'+values.map(parts=>parts.map(cell).join(';')).join('\r\n');
+    const url=URL.createObjectURL(new Blob([contents],{type:'text/csv;charset=utf-8'}));
+    const link=node('a');
+    link.href=url;
+    link.download=`rsya-${account}-${period.start}-${period.end}.csv`;
+    link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+
+  function chooseAccount() {
+    const login=byId('account-select').value;
+    const latest=data.accounts[login].as_of;
+    const history=Object.keys(data.archives[login]).filter(day=>day!==latest);
+    addOptions(byId('snapshot'),[latest,...history].map(day=>[day,displayDate(day)]),latest);
+    byId('campaign').value='';
+    byId('goal').value='';
+    byId('traffic').value='';
+    draw();
+  }
+  addOptions(byId('account-select'),Object.entries(data.accounts).map(([id,snap])=>[id,`${snap.settings.account_name} · ${id}`]));
+  byId('account-select').addEventListener('change',chooseAccount);
+  byId('campaign').addEventListener('change',()=>{byId('goal').value='';draw();});
+  for (const id of ['snapshot','goal','traffic']) byId(id).addEventListener('change',draw);
+  chooseAccount();
+</script>
+</html>

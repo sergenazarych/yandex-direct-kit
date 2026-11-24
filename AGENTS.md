@@ -10,6 +10,9 @@
 | Скилл | Когда использовать |
 |---|---|
 | `.claude/skills/yandex-direct/SKILL.md` | API Директа и Wordstat: статистика, кампании, фразы, площадки, загрузка кампании из таблицы |
+| `.claude/skills/yandex-direct-max/SKILL.md` | запуск рекламы на подписку в MAX, включая показы внутри MAX и переходы из РСЯ |
+| `.claude/skills/yandex-direct-rsya-optimization/SKILL.md` | разбор кампании РСЯ после запуска, рекомендации, согласованные правки с журналом |
+| `.claude/skills/yandex-direct-monitor/SKILL.md` | локальная панель, сигналы об отклонениях, ежедневные, недельные и месячные отчёты |
 | `.claude/skills/pasport-proekta/SKILL.md` | паспорт проекта, бриф, портрет клиента, сегменты, нецелевой спрос |
 | `.claude/skills/vybor-strategii-zapuska/SKILL.md` | выбор стратегии запуска: квиз, лендинг, лид-магнит, подписная; МК, РСЯ или поиск |
 | `.claude/skills/auditor-posadochnyh/SKILL.md` | аудит посадочной, «почему не конвертит» |
