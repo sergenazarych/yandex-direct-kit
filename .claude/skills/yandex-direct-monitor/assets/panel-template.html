@@ -106,6 +106,7 @@
   let availableGoals = [];
   const selectedGoals = () => byId('goal').value===allGoals ? availableGoals : [byId('goal').value];
   const hasCompleteGoals = row => selectedGoals().every(goal=>row.goals[goal]!=null);
+  const hasPartialGoals = row => goalValue(row)!=null && !hasCompleteGoals(row);
   function goalValue(row) {
     const values=selectedGoals().map(goal=>row.goals[goal]);
     const known=values.filter(value=>value!=null);
@@ -113,8 +114,8 @@
     return known.length && (sum>0 || known.length===values.length) ? sum : null;
   }
   const cpc = row => divide(row.cost,row.clicks);
-  const cpa = row => hasCompleteGoals(row) ? divide(row.cost,goalValue(row)) : null;
-  const cr = row => hasCompleteGoals(row) ? rate(goalValue(row),row.clicks) : null;
+  const cpa = row => divide(row.cost,goalValue(row));
+  const cr = row => rate(goalValue(row),row.clicks);
   const displayDate = value => value.split('-').reverse().join('.');
   const dates = (a,b) => a===b ? displayDate(a) : `${displayDate(a)} — ${displayDate(b)}`;
   const blank = {impressions:0,clicks:0,cost:0,goals:{}};
@@ -152,7 +153,10 @@
       ['CPA',cpa,money,-1], ['Конверсия, % (CR)',cr,percent,1,true],
     ];
     byId('metrics').replaceChildren(...spec.map(([label,get,pretty,direction,pp])=>{
-      const a=get(now), b=get(before);
+      const conversionMetric=[goalValue,cpa,cr].includes(get);
+      const sameCoverage=!conversionMetric || selectedGoals().every(goal=>
+        (now.goals[goal]!=null)===(before.goals[goal]!=null));
+      const a=get(now), b=sameCoverage ? get(before) : null;
       const delta=a==null || b==null ? null : pp ? a-b : b!==0 ? 100*(a-b)/b : a===0 ? 0 : null;
       const sign=delta==null ? Math.sign((a ?? 0)-(b ?? 0))*direction : Math.sign(delta)*direction;
       const tone=a!=null && b!=null ? sign>0 ? 'up' : sign<0 ? 'down' : 'meta' : 'meta';
@@ -161,6 +165,7 @@
       const change=delta==null ? a!=null && b===0 ? 'Было 0' : 'Нет сравнения' : `${delta>0 ? '+' : ''}${format(delta)} ${pp ? 'п. п.' : '%'}`;
       footer.append(node('span',change,`badge ${tone}`));
       if (b!=null && change!=='Было 0') footer.append(node('span',`было ${pretty(b)}`,'meta'));
+      if (conversionMetric && a!=null && hasPartialGoals(now)) footer.append(node('span','По доступным целям','badge meta'));
       const risky=label==='CPC' && a!=null && a<threshold;
       if (risky) footer.append(node('span',`Ниже ${money(threshold)}`,'badge down'));
       item.append(node('span',label,'meta'),node('strong',pretty(a),risky ? 'down' : tone),footer);
@@ -228,10 +233,10 @@
     const paid=current.filter(row=>row.clicks>0);
     const zero=paid.filter(row=>goalValue(row)===0).length;
     const unknown=paid.filter(row=>goalValue(row)==null).length;
-    const partial=paid.filter(row=>goalValue(row)>0 && !hasCompleteGoals(row)).length;
+    const partial=paid.filter(hasPartialGoals).length;
     byId('chart-note').textContent=[zero ? `Дней с кликами и без конверсий: ${zero}. В эти дни конверсия равна 0%, а стоимость конверсии посчитать нельзя.` : '',
       unknown ? `Дней с кликами и без подтверждённых данных по цели: ${unknown}. На графике оставлены пропуски.` : '',
-      partial ? `Дней с данными только по части целей: ${partial}. Показаны подтверждённые конверсии.` : ''].filter(Boolean).join(' ');
+      partial ? `Дней с данными только по части целей: ${partial}. CPA и CR рассчитаны по подтверждённым конверсиям.` : ''].filter(Boolean).join(' ');
     const unit=currency.resolvedOptions().currency==='RUB' ? ' ₽' : '';
     byId('chart').replaceChildren(line('Расход с НДС',r=>r.cost,money,unit),line('Средняя цена клика (CPC)',cpc,money,unit),
       line('Стоимость конверсии (CPA)',cpa,money,unit),line('Конверсия, % (CR)',cr,percent,'%'),
@@ -280,7 +285,7 @@
     const costly=row=>cpc(row)!=null && cpc(row)>expensive && row.clicks>2;
     const limit=average>0 ? 3*average : null;
     const overLimit=row=>limit!=null && row.cost>limit && goalValue(row)===0;
-    const aboveDouble=row=>average>0 && goalValue(row)>0 && cpa(row)>2*average;
+    const aboveDouble=row=>average>0 && hasCompleteGoals(row) && goalValue(row)>0 && cpa(row)>2*average;
     const highCpa=row=>limit!=null && goalValue(row)>0 && cpa(row)>limit;
     const choices=[['Все',()=>true],['Дешёвые клики',cheap],['Дорогие клики',costly],['Без конверсий · расход > 3 CPA',overLimit],['Заявки дороже 2× среднего',aboveDouble],['CPA выше 3 средних',highCpa]];
     let filter=0;
@@ -321,6 +326,7 @@
           if (goalValue(row)<3) signals.append(node('span','Мало конверсий','badge meta'));
         }
         if (limit!=null && row.cost>limit && goalValue(row)==null) signals.append(node('span','Данных по цели нет','badge meta'));
+        if (hasPartialGoals(row)) signals.append(node('span','По доступным целям','badge meta'));
         if (!signals.children.length) signals.append(node('span','—','meta'));
         tr.append(signals);
       }
@@ -383,8 +389,8 @@
   function breakdowns(tables,period,snap,campaign,now,threshold,expensive) {
     const comparable=period.campaigns.filter(r=>hasCompleteGoals(r) && goalValue(r)!=null && r.cost!=null);
     const covered=divide(comparable.reduce((s,r)=>s+r.cost,0),comparable.reduce((s,r)=>s+goalValue(r),0));
-    const displayedAverage=cpa(now);
-    const accountAverage=cpa(period.total);
+    const displayedAverage=hasCompleteGoals(now) ? cpa(now) : null;
+    const accountAverage=hasCompleteGoals(period.total) ? cpa(period.total) : null;
     const average=displayedAverage ?? accountAverage ?? covered;
     const limit=average!=null && average>0 ? 3*average : null;
     byId('breakdowns').replaceChildren(...Object.keys(slices).map(key=>{
@@ -520,7 +526,7 @@
     if (!options.length) checks.push(campaign ? 'Настроенная цель этой кампании недоступна через API.' : 'Для просмотра конверсий выберите кампанию с доступной настроенной целью.');
     if (goals.length>1) {
       checks.push('«Все цели» суммирует достижения выбранных целей. Один человек может выполнить несколько целей.');
-      if (now.clicks && !hasCompleteGoals(now)) checks.push('По части целей есть пропуски. Показаны подтверждённые конверсии, а общий CPA и CR появятся при полном наборе данных.');
+      if (now.clicks && !hasCompleteGoals(now)) checks.push('По части целей есть пропуски. Если есть подтверждённые конверсии, CPA и CR рассчитаны по ним.');
     } else if (options.length && now.clicks && goalValue(now)==null) {
       checks.push('По выбранной цели Директ не вернул значения для расчёта конверсий.');
     }
@@ -532,12 +538,13 @@
   }
 
   function download(tables,campaign,period,now,before) {
-    const fields=['Кабинет','Трафик','Цель','Разрез','Объект','Показы','Клики','Расход с НДС','CTR %','CPC','Конверсии','CPA','CR %'];
+    const fields=['Кабинет','Трафик','Цель','Разрез','Объект','Показы','Клики','Расход с НДС','CTR %','CPC','Конверсии','CPA','CR %','Данные по целям'];
     const account=byId('account-select').value;
     const goal=byId('goal').selectedOptions[0]?.textContent || '';
     const scope=byId('traffic').selectedOptions[0]?.textContent || '';
     const row=(section,label,entry)=>[account,scope,goal,section,label,entry.impressions,entry.clicks,entry.cost,
-      rate(entry.clicks,entry.impressions),cpc(entry),goalValue(entry),cpa(entry),cr(entry)];
+      rate(entry.clicks,entry.impressions),cpc(entry),goalValue(entry),cpa(entry),cr(entry),
+      hasPartialGoals(entry) ? 'По доступным целям' : ''];
     const values=[fields,row('Итог',dates(period.start,period.end),now),row('Сравнение',dates(...period.previous),before)];
     for (const [key,entries] of Object.entries(tables)) {
       for (const entry of entries.filter(item=>!campaign || item.key[0]===campaign)) values.push(row(slices[key],entry.key.join(' · '),entry));
