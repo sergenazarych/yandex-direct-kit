@@ -1,0 +1,4 @@
+interface:
+  display_name: "Поиск Яндекса · Настройка рекламы"
+  short_description: "Кампании, группы и объявления по готовому ядру"
+  default_prompt: "$yandex-search-setup Подготовь кампании на поиске по готовому ядру и покажи план."

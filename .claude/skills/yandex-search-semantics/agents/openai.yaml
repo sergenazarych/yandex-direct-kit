@@ -1,0 +1,4 @@
+interface:
+  display_name: "Поиск Яндекса · Сбор семантики"
+  short_description: "Ключевые фразы, кластеры и минусы для услуги"
+  default_prompt: "$yandex-search-semantics Собери ядро для поисковой рекламы по сайту и сгруппируй ключи."

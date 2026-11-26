@@ -1,0 +1,4 @@
+interface:
+  display_name: "Поиск Яндекса · Ведение рекламы"
+  short_description: "Запросы, позиции, продажи и решения по сегментам"
+  default_prompt: "$yandex-search-optimization Разбери поисковую кампанию и найди потери и точки роста."
